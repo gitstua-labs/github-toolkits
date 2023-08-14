@@ -2,12 +2,12 @@
 Retrieves all workflow runs for an organisation within the specified date range.
 
 Usage:
-    python get_org_workflow_runs.py <repo_owner> <start_date> <end_date>
+    python get_org_workflow_runs.py <org_name> <start_date> <end_date>
 
 Arguments:
-    repo_owner (str): The owner of the repository.
-    start_date (str): The start date of the date range in ISO 8601 format.
-    end_date (str): The end date of the date range in ISO 8601 format.
+    org_name (str): The name of the organization.
+    start_date (str): The start date of the date range in ISO 8601 format. Can be just a date e.g. 2020-01-01.
+    end_date (str): The end date of the date range in ISO 8601 format. Can be just a date e.g. 2023-08-01.
 
 Returns:
     A list of workflow runs with the following fields:
@@ -38,21 +38,22 @@ This script retrieves all workflow runs for all repositories in the organization
 
 The `start_date` and `end_date` arguments should be in ISO 8601 format, e.g. `2022-01-01T00:00:00Z`.
 
-Note: You must set the `GITHUB_TOKEN` environment variable to your GitHub API token with `repo` scope before running this script.
+Note: You must set the `ORG_GITHUB_TOKEN` environment variable to your GitHub API token with ` Read and Write access to workflows` scope for all repos before running this script.
 """
 
 import subprocess
 import json
 import sys
+import os
 
 from datetime import datetime
 
 # Parse the command-line arguments
 if len(sys.argv) != 4:
-    print("Usage: python get_org_workflow_runs.py <repo_owner> <start_date> <end_date>")
+    print("Usage: python get_org_workflow_runs.py <org_name> <start_date> <end_date>")
     sys.exit(1)
 
-repo_owner = sys.argv[1]
+org_name = sys.argv[1]
 start_date = sys.argv[2]
 end_date = sys.argv[3]
 
@@ -64,9 +65,15 @@ except ValueError:
     print('Error: Invalid date format. Please use ISO format (YYYY-MM-DDTHH:MM:SSZ).')
     sys.exit(1)
 
+# if environment variable ORG_GITHUB_TOKEN is set the copy it into GITHUB_TOKEN
+if (os.getenv('ORG_GITHUB_TOKEN')) is not None:
+    print('ORG_GITHUB_TOKEN is set so using this')
+    os.environ['GITHUB_TOKEN'] = os.getenv('ORG_GITHUB_TOKEN')
+else:
+    print('Warn: ORG_GITHUB_TOKEN environment variable is not set.')
 
 # Construct the gh api command
-cmd = f'gh api orgs/{repo_owner}/repos --jq \'.[] | .name\''
+cmd = f'gh api orgs/{org_name}/repos --jq \'.[] | .name\''
 
 # Send the command and retrieve the output
 output = subprocess.check_output(cmd, shell=True, text=True)
@@ -88,7 +95,7 @@ for repo in repo_names:
   )
 
   # Construct the gh api command
-  cmd = f'gh api repos/{repo_owner}/{repo}/actions/runs --paginate --jq \'{jq_query}\''
+  cmd = f'gh api repos/{org_name}/{repo}/actions/runs --paginate --jq \'{jq_query}\''
 
   # Send the command and retrieve the output
   output = subprocess.check_output(cmd, shell=True, text=True)
